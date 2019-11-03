@@ -8,9 +8,9 @@ import torchvision as tv
 
 from time import time
 from model import Model
-from attack import FastGradientSignUntargeted
+from attack import FastGradientSignUntargeted, triplet_loss
 from utils import makedirs, create_logger, tensor2cuda, numpy2cuda, evaluate, save_model
-
+import numpy as np
 from argument import parser, print_args
 
 class Trainer():
@@ -37,6 +37,8 @@ class Trainer():
 
         for epoch in range(1, args.max_epoch+1):
             for data, label in tr_loader:
+                # print("Unique labels:", np.unique(label))
+                dummylabel = label
                 data, label = tensor2cuda(data), tensor2cuda(label)
 
                 if adv_train:
@@ -44,9 +46,22 @@ class Trainer():
                     # close point to the original data point. If in evaluation mode, 
                     # just start from the original data point.
                     adv_data = self.attack.perturb(data, label, 'mean', True)
+
+                    # print("Shape of Adversarial data:", adv_data.shape)
+                    # print("Shape of labels:", label.shape)
+                    with torch.no_grad():
+                        X_output = model(data, _eval=True, _prefinal=True)
+                        X_adv_output = model(adv_data, _eval=True, _prefinal=True)
+
+                    tloss = triplet_loss(X_output, X_adv_output, label, 0.1)
+                    print("Triplet loss is:", tloss)
                     output = model(adv_data, _eval=False)
                 else:
                     output = model(data, _eval=False)
+
+                print("Shape of output", output.shape)
+                print("First output:", output[0])
+                print('torch max output after adv:', torch.max(output, dim=1)[1])
 
                 # Add triplet loss here
                 loss = F.cross_entropy(output, label)
@@ -102,7 +117,7 @@ class Trainer():
                     begin_time = time()
 
                 if _iter % args.n_store_image_step == 0:
-                    tv.utils.save_image(torch.cat([data.cpu(), adv_data.cpu()], dim=0), 
+                    tv.utils.save_image(torch.cat([data.cpu(), adv_data.cpu()], dim=0),
                                         os.path.join(args.log_folder, 'images_%d.jpg' % _iter), 
                                         nrow=16)
                     

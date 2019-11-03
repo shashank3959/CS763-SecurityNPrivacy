@@ -24,8 +24,8 @@ class Model(nn.Module):
         self.fc1 = nn.Linear(7 * 7 * 64, 1024, bias=True)
         self.fc2 = nn.Linear(1024, n_c)
 
-
-    def forward(self, x_i, _eval=False):
+    # _prefinal returns the output before the last layer
+    def forward(self, x_i, _eval=False, _prefinal=False):
 
         if _eval:
             # switch to eval mode
@@ -47,7 +47,10 @@ class Model(nn.Module):
 
         self.train()
 
-        return self.fc2(x_o)
+        if _prefinal:
+            return x_o
+        else:
+            return self.fc2(x_o)
 
 
 if __name__ == '__main__':
