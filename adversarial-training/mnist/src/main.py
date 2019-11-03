@@ -53,18 +53,15 @@ class Trainer():
                         X_output = model(data, _eval=True, _prefinal=True)
                         X_adv_output = model(adv_data, _eval=True, _prefinal=True)
 
-                    tloss = triplet_loss(X_output, X_adv_output, label, 0.1)
+                    tloss = triplet_loss(X_output, X_adv_output, label)
                     print("Triplet loss is:", tloss)
                     output = model(adv_data, _eval=False)
                 else:
                     output = model(data, _eval=False)
 
-                print("Shape of output", output.shape)
-                print("First output:", output[0])
-                print('torch max output after adv:', torch.max(output, dim=1)[1])
-
                 # Add triplet loss here
-                loss = F.cross_entropy(output, label)
+                loss = F.cross_entropy(output, label) + tloss
+                print("CE loss is:", loss)
 
                 opt.zero_grad()
                 loss.backward()

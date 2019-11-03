@@ -5,6 +5,18 @@ import torch.nn.functional as F
 from time import time
 
 
+def _pairwise_distances(X1, X2):
+    """
+    Returns the pairwise distance between two tensors
+    Args:
+        X1: batch_size * tensor-length
+        X2: batch_size * tensor-length
+    Returns:
+        Element wise norm between two tensors. dimension: batch_size x 1
+    """
+    return F.pairwise_distance(X1, X2)
+
+
 def _label_sampler(unique_labels, label):
     """
     Function samples a random label different in this batch different from the current label
@@ -26,14 +38,14 @@ def _sample_neg(label, new_label):
         label: Is a list of all labels
         new_label: The new_label to find position of in the "label" list
     Return:
-        Returns an element from the list corresponding to the new label. This is the negative pair
+        Returns an element from the list corresponding to the new label. This is the negative pair's position.
     """
     possible_locations = (label == new_label).nonzero().view(-1)
     choice = torch.multinomial(possible_locations.float(), 1)
     return possible_locations[choice]
 
 
-def triplet_loss(X, X_adv, label, margin):
+def triplet_loss(X, X_adv, label, margin=1.0):
     """
     Args:
         X: Embeddings from Input images; dimension: batch_size * Width * Height
@@ -60,55 +72,58 @@ def triplet_loss(X, X_adv, label, margin):
     # Negative pairs for this batch
     X_neg = X[positions.tolist()]
 
+    # Check
+    # if torch.all(torch.eq(X_neg[14], X[positions.tolist()[14]])):
+    #     print("Hell yeah!")
+
     # Now we have
     # X_adv: Anchor element
     # X: Positive element
     # X_neg: Negative element
+    positive_pair_distances = _pairwise_distances(X_adv, X)
+    negative_pair_distances = _pairwise_distances(X_adv, X_neg)
 
-    # Just a check
-    # if torch.all(torch.eq(X_neg[14], X[positions.tolist()[14]])):
-    #     print("Hell yeah!")
+    dist_hinge = torch.clamp(positive_pair_distances - negative_pair_distances + margin, min=0.0)
 
-    
+    loss = dist_hinge.mean()
+    print("Triplet loss:", loss)
 
-
-    print("Shape of X_neg:", X_neg.shape)
 
     print("Time to new labels:", time()-start)
 
-    return 0.1
+    return loss
 
 
-def _pairwise_distances(embeddings, squared=False):
-    """Compute the 2D matrix of distances between all the embeddings.
-    Args:
-        embeddings: tensor of shape (batch_size, embed_dim)
-        squared: Boolean. If true, output is the pairwise squared euclidean distance matrix.
-                 If false, output is the pairwise euclidean distance matrix.
-    Returns:
-        pairwise_distances: tensor of shape (batch_size, batch_size)
-    """
-    dot_product = torch.matmul(embeddings, embeddings.t())
-
-    # Get squared L2 norm for each embedding. We can just take the diagonal of `dot_product`.
-    # This also provides more numerical stability (the diagonal of the result will be exactly 0).
-    # shape (batch_size,)
-    square_norm = torch.diag(dot_product)
-
-    # Compute the pairwise distance matrix as we have:
-    # ||a - b||^2 = ||a||^2  - 2 <a, b> + ||b||^2
-    # shape (batch_size, batch_size)
-    distances = square_norm.unsqueeze(0) - 2.0 * dot_product + square_norm.unsqueeze(1)
-
-    # Because of computation errors, some distances might be negative so we put everything >= 0.0
-    distances[distances < 0] = 0
-
-    if not squared:
-        # Because the gradient of sqrt is infinite when distances == 0.0 (ex: on the diagonal)
-        # we need to add a small epsilon where distances == 0.0
-        mask = distances.eq(0).float()
-        distances = distances + mask * 1e-16
-
-        distances = (1.0 - mask) * torch.sqrt(distances)
-
-    return distances
+# def _pairwise_distances(embeddings, squared=False):
+#     """Compute the 2D matrix of distances between all the embeddings.
+#     Args:
+#         embeddings: tensor of shape (batch_size, embed_dim)
+#         squared: Boolean. If true, output is the pairwise squared euclidean distance matrix.
+#                  If false, output is the pairwise euclidean distance matrix.
+#     Returns:
+#         pairwise_distances: tensor of shape (batch_size, batch_size)
+#     """
+#     dot_product = torch.matmul(embeddings, embeddings.t())
+#
+#     # Get squared L2 norm for each embedding. We can just take the diagonal of `dot_product`.
+#     # This also provides more numerical stability (the diagonal of the result will be exactly 0).
+#     # shape (batch_size,)
+#     square_norm = torch.diag(dot_product)
+#
+#     # Compute the pairwise distance matrix as we have:
+#     # ||a - b||^2 = ||a||^2  - 2 <a, b> + ||b||^2
+#     # shape (batch_size, batch_size)
+#     distances = square_norm.unsqueeze(0) - 2.0 * dot_product + square_norm.unsqueeze(1)
+#
+#     # Because of computation errors, some distances might be negative so we put everything >= 0.0
+#     distances[distances < 0] = 0
+#
+#     if not squared:
+#         # Because the gradient of sqrt is infinite when distances == 0.0 (ex: on the diagonal)
+#         # we need to add a small epsilon where distances == 0.0
+#         mask = distances.eq(0).float()
+#         distances = distances + mask * 1e-16
+#
+#         distances = (1.0 - mask) * torch.sqrt(distances)
+#
+#     return distances
