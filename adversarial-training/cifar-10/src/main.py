@@ -3,12 +3,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
-
+import numpy as np
 import torchvision as tv
 
 from time import time
 from model import WideResNet
-from attack import FastGradientSignUntargeted
+from attack import FastGradientSignUntargeted, triplet_loss
 from utils import makedirs, create_logger, tensor2cuda, numpy2cuda, evaluate, save_model
 
 from argument import parser, print_args
@@ -36,10 +36,12 @@ class Trainer():
         _iter = 0
 
         begin_time = time()
+        print("Beginning Training without triplet loss!")
 
         for epoch in range(1, args.max_epoch+1):
             scheduler.step()
             for data, label in tr_loader:
+                print("Unique labels:", np.unique(label))
                 data, label = tensor2cuda(data), tensor2cuda(label)
 
                 if adv_train:
@@ -47,11 +49,22 @@ class Trainer():
                     # close point to the original data point. If in evaluation mode, 
                     # just start from the original data point.
                     adv_data = self.attack.perturb(data, label, 'mean', True)
+
+                    # Shape of output batch_size * 640
+                    X_output = model(data, _eval=False, _prefinal=True)
+                    X_adv_output = model(adv_data, _eval=False, _prefinal=True)
+
+                    tloss = triplet_loss(X_output, X_adv_output, label)
+
                     output = model(adv_data, _eval=False)
                 else:
+                    #tloss = 0
                     output = model(data, _eval=False)
 
-                loss = F.cross_entropy(output, label)
+
+                ce_loss = F.cross_entropy(output, label)
+                loss = ce_loss + tloss
+                #loss = ce_loss
 
                 opt.zero_grad()
                 loss.backward()
@@ -59,6 +72,7 @@ class Trainer():
 
                 if _iter % args.n_eval_step == 0:
                     t1 = time()
+                    logger.info('Total Loss logger: %.3f, CE Loss: %.3f, Triplet loss: %.3f' % (loss, ce_loss, tloss))
 
                     if adv_train:
                         with torch.no_grad():
@@ -185,7 +199,9 @@ def main(args):
 
     print_args(args, logger)
 
+    # Using a WideResNet model
     model = WideResNet(depth=34, num_classes=10, widen_factor=10, dropRate=0.0)
+    print("Using a WideResNET!!!")
 
     attack = FastGradientSignUntargeted(model, 
                                         args.epsilon, 

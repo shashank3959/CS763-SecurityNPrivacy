@@ -29,9 +29,7 @@ class Model(nn.Module):
         self.fc1 = nn.Linear(7 * 7 * 64, 1024, bias=True)
         self.fc2 = nn.Linear(1024, n_c)
 
-
-    def forward(self, x_i, _eval=False):
-
+    def forward(self, x_i, _eval=False, _prefinal=False):
         if _eval:
             # switch to eval mode
             self.eval()
@@ -52,10 +50,10 @@ class Model(nn.Module):
 
         self.train()
 
-        return self.fc2(x_o)
-
-
-
+        if _prefinal:
+            return x_o
+        else:
+            return self.fc2(x_o)
 
 
 class BasicBlock(nn.Module):
@@ -84,17 +82,21 @@ class BasicBlock(nn.Module):
         out = self.conv2(out)
         return torch.add(x if self.equalInOut else self.convShortcut(x), out)
 
+
 class NetworkBlock(nn.Module):
     def __init__(self, nb_layers, in_planes, out_planes, block, stride, dropRate=0.0):
         super(NetworkBlock, self).__init__()
         self.layer = self._make_layer(block, in_planes, out_planes, nb_layers, stride, dropRate)
+
     def _make_layer(self, block, in_planes, out_planes, nb_layers, stride, dropRate):
         layers = []
         for i in range(int(nb_layers)):
             layers.append(block(i == 0 and in_planes or out_planes, out_planes, i == 0 and stride or 1, dropRate))
         return nn.Sequential(*layers)
+
     def forward(self, x):
         return self.layer(x)
+
 
 class WideResNet(nn.Module):
     def __init__(self, depth, num_classes, widen_factor=1, dropRate=0.0):
@@ -128,7 +130,7 @@ class WideResNet(nn.Module):
             elif isinstance(m, nn.Linear):
                 m.bias.data.zero_()
 
-    def forward(self, x, _eval=False):
+    def forward(self, x, _eval=False, _prefinal=False):
         if _eval:
             # switch to eval mode
             self.eval()
@@ -145,7 +147,12 @@ class WideResNet(nn.Module):
 
         self.train()
 
-        return self.fc(out)
+        if _prefinal:
+            # Shape of output: batch_size * 640
+            return out
+        else:
+            # Shape of output: batch_size * num_classes
+            return self.fc(out)
 
 
 if __name__ == '__main__':
