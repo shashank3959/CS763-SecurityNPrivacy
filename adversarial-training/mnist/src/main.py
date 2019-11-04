@@ -49,22 +49,23 @@ class Trainer():
 
                     # print("Shape of Adversarial data:", adv_data.shape)
                     # print("Shape of labels:", label.shape)
-                    with torch.no_grad():
-                        X_output = model(data, _eval=True, _prefinal=True)
-                        X_adv_output = model(adv_data, _eval=True, _prefinal=True)
+                    # with torch.no_grad():
+                    X_output = model(data, _eval=False, _prefinal=True)
+                    X_adv_output = model(adv_data, _eval=False, _prefinal=True)
 
                     tloss = triplet_loss(X_output, X_adv_output, label)
                     print("Triplet loss is:", tloss)
+
                     output = model(adv_data, _eval=False)
                 else:
                     output = model(data, _eval=False)
 
                 # Add triplet loss here
-                loss = F.cross_entropy(output, label) + tloss
-                print("CE loss is:", loss)
-
+                ce_loss = F.cross_entropy(output, label)
+                loss = ce_loss + tloss
                 opt.zero_grad()
                 loss.backward()
+
                 opt.step()
 
                 if _iter % args.n_eval_step == 0:
