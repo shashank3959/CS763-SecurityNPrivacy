@@ -31,6 +31,28 @@ def _label_sampler(unique_labels, label):
     return unique_labels[valid_idx[choice]]
 
 
+def ret_new_label(real_label, perturbed_label, unique_labels):
+    """
+    Function returns the new label for the negative example in triplet as the perturbed label,
+    unless real_label is same as perturbed (may happen during later stages of training) or perturbed label
+    sample doesn't exist in the batch
+    Args:
+        real_label: The real label of the input
+        perturbed_label: The label output by the adversarial sample
+        unique_labels: A list of all unique label values in this batch
+    Returns:
+        new_label: As in description
+    """
+    # If real_label is same or perturbed label doesn't exist in batch
+    if (real_label == perturbed_label) or (perturbed_label not in unique_labels):
+        # _label sampler returns a random label different in this batch different from the current label
+        new_label = _label_sampler(unique_labels, real_label)
+    else:
+        new_label = perturbed_label.view(-1)
+
+    return new_label
+
+
 def _sample_neg(label, new_label):
     """
     Args:
@@ -45,24 +67,25 @@ def _sample_neg(label, new_label):
     return possible_locations[choice]
 
 
-def triplet_loss(X, X_adv, label, margin=2.0):
+def triplet_loss(X, X_adv, label, perturbed_label, logger, margin=2.0):
     """
     Args:
         X: Embeddings from Input images; dimension: batch_size * Width * Height
         X_adv: Embeddings from adversarially perturbed input images;  dimension: batch_size * Width * Height
         label: Real output labels for images; dimension: batch_size
+        margin: The margin for triplet loss
+        perturbed_class: The class the X_adv was perturbed into
     Returns:
         The triplet loss for this batch
     """
-    # print("Shape of X:", X.shape)
-    # print("Shape of Xadv:", X_adv.shape)
-    # print("Shape of label:", label.shape)
-    # print("Labels are:", label)
     start = time()
 
     # Sample new labels different from the current label for each label: Negative Sample
     unique_labels = label.unique()
-    new_labels = torch.stack([_label_sampler(unique_labels, l) for l in label]).view(-1)
+
+    # new_labels = torch.stack([_label_sampler(unique_labels, l) for l in label]).view(-1)
+    new_labels = torch.stack([ret_new_label(real, perturbed, unique_labels) for real,perturbed in zip(label, perturbed_label)]).view(-1)
+
     # print("New Labels are:", new_labels)
 
     # Find positions of occurrence of these new labels, these positions will be our negative samples

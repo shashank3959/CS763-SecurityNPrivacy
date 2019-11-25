@@ -9,7 +9,7 @@ import torchvision as tv
 from time import time
 from model import WideResNet
 from attack import FastGradientSignUntargeted, triplet_loss
-from utils import makedirs, create_logger, tensor2cuda, numpy2cuda, evaluate, save_model
+from utils import makedirs, create_logger, tensor2cuda, numpy2cuda, evaluate, save_model, get_model_infos
 
 from argument import parser, print_args
 
@@ -41,7 +41,7 @@ class Trainer():
         for epoch in range(1, args.max_epoch+1):
             scheduler.step()
             for data, label in tr_loader:
-                print("Unique labels:", np.unique(label))
+
                 data, label = tensor2cuda(data), tensor2cuda(label)
 
                 if adv_train:
@@ -50,21 +50,22 @@ class Trainer():
                     # just start from the original data point.
                     adv_data = self.attack.perturb(data, label, 'mean', True)
 
-                    # Shape of output batch_size * 640
+                    output = model(adv_data, _eval=False)
+
+                    # Shape of pred: batch_size
+                    pred = torch.max(output, dim=1)[1]
+
+                    # Shape of output: batch_size * 640
                     X_output = model(data, _eval=False, _prefinal=True)
                     X_adv_output = model(adv_data, _eval=False, _prefinal=True)
 
-                    tloss = triplet_loss(X_output, X_adv_output, label)
+                    tloss = triplet_loss(X_output, X_adv_output, label, pred, logger)
 
-                    output = model(adv_data, _eval=False)
                 else:
-                    #tloss = 0
                     output = model(data, _eval=False)
-
 
                 ce_loss = F.cross_entropy(output, label)
                 loss = ce_loss + tloss
-                #loss = ce_loss
 
                 opt.zero_grad()
                 loss.backward()
@@ -77,13 +78,10 @@ class Trainer():
                     if adv_train:
                         with torch.no_grad():
                             stand_output = model(data, _eval=True)
-                        pred = torch.max(stand_output, dim=1)[1]
+                        pred_stand = torch.max(stand_output, dim=1)[1]
 
-                        # print(pred)
-                        std_acc = evaluate(pred.cpu().numpy(), label.cpu().numpy()) * 100
+                        std_acc = evaluate(pred_stand.cpu().numpy(), label.cpu().numpy()) * 100
 
-                        pred = torch.max(output, dim=1)[1]
-                        # print(pred)
                         adv_acc = evaluate(pred.cpu().numpy(), label.cpu().numpy()) * 100
 
                     else:
@@ -201,7 +199,8 @@ def main(args):
 
     # Using a WideResNet model
     model = WideResNet(depth=34, num_classes=10, widen_factor=10, dropRate=0.0)
-    print("Using a WideResNET!!!")
+    flop, param = get_model_infos(model, (1, 3, 32, 32))
+    logger.log('Model Info: FLOP = {:.2f} M, Params = {:.2f} MB'.format(flop, param))
 
     attack = FastGradientSignUntargeted(model, 
                                         args.epsilon, 

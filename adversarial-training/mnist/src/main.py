@@ -55,6 +55,7 @@ class Trainer():
 
                     tloss = triplet_loss(X_output, X_adv_output, label)
                     print("Triplet loss is:", tloss)
+                    print("Triplet loss RG:", tloss.requires_grad)
 
                     output = model(adv_data, _eval=False)
                 else:
