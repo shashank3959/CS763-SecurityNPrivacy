@@ -63,6 +63,7 @@ class Trainer():
 
                 else:
                     output = model(data, _eval=False)
+                    tloss = 0
 
                 ce_loss = F.cross_entropy(output, label)
                 loss = ce_loss + tloss
@@ -200,7 +201,7 @@ def main(args):
     # Using a WideResNet model
     model = WideResNet(depth=34, num_classes=10, widen_factor=10, dropRate=0.0)
     flop, param = get_model_infos(model, (1, 3, 32, 32))
-    logger.log('Model Info: FLOP = {:.2f} M, Params = {:.2f} MB'.format(flop, param))
+    logger.info('Model Info: FLOP = {:.2f} M, Params = {:.2f} MB'.format(flop, param))
 
     attack = FastGradientSignUntargeted(model, 
                                         args.epsilon, 
