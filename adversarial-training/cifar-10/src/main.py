@@ -8,7 +8,7 @@ import torchvision as tv
 
 from time import time
 from model import WideResNet
-from attack import FastGradientSignUntargeted, triplet_loss
+from attack import FastGradientSignUntargeted, triplet_loss, npairs_loss
 from utils import makedirs, create_logger, tensor2cuda, numpy2cuda, evaluate, save_model, get_model_infos
 
 from argument import parser, print_args
@@ -38,12 +38,13 @@ class Trainer():
         begin_time = time()
 
         # Loss mixer: ce_loss_orig + (lambda1 * ce_loss_adversarial) + (lambda2 * triplet_loss)
-        lambda1 = 1
-        lambda2 = 1
+        lambda1 = 0.6
+        lambda2 = 0.5 # 1 for triplet, 0.5 for npairs for now
 
         for epoch in range(1, args.max_epoch+1):
-            # scheduler.step()
+            #scheduler.step()
             for data, label in tr_loader:
+
                 data, label = tensor2cuda(data), tensor2cuda(label)
 
                 if adv_train:
@@ -62,12 +63,12 @@ class Trainer():
                     # Predicted labels on adversarial samples
                     pred = torch.max(adv_output, dim=1)[1]
 
-                    # Shape of output: batch_size * 640
+                    # Shape of output: batch_size * (64*widen_factor)
                     X_output = model(data, _eval=False, _prefinal=True)
                     X_adv_output = model(adv_data, _eval=False, _prefinal=True)
 
-                    tloss = triplet_loss(X_output, X_adv_output, label, pred, logger)
-
+                    #tloss = triplet_loss(X_output, X_adv_output, label, pred, logger)
+                    tloss = npairs_loss(X_output, X_adv_output, label)
                 else:
                     output = model(data, _eval=False)
                     tloss = 0
@@ -76,6 +77,7 @@ class Trainer():
                 if adv_train:
                     # Adding loss due to adversarial samples in the mix
                     ce_loss = ce_loss + lambda1 * F.cross_entropy(adv_output, label)
+                    ce_loss = ce_loss / (1 + lambda1)
 
                 loss = ce_loss + lambda2 * tloss
 
@@ -145,6 +147,9 @@ class Trainer():
 
                 _iter += 1
 
+            # Update the scheduler
+            scheduler.step()
+
             if va_loader is not None:
                 t1 = time()
                 va_acc, va_adv_acc = self.test(model, va_loader, True)
@@ -156,8 +161,6 @@ class Trainer():
                 logger.info('test acc: %.3f %%, test adv acc: %.3f %%, spent: %.3f' % (
                     va_acc, va_adv_acc, t2-t1))
                 logger.info('='*28+' end of evaluation '+'='*28+'\n')
-
-            scheduler.step()
 
 
     def test(self, model, loader, adv_test=False):
