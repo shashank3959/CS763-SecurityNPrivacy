@@ -31,29 +31,36 @@ class Trainer():
 
         opt = torch.optim.Adam(model.parameters(), args.learning_rate, weight_decay=args.weight_decay)
         scheduler = torch.optim.lr_scheduler.MultiStepLR(opt, 
-                                                         milestones=[100, 150], 
+                                                         milestones=[50, 100, 150], 
                                                          gamma=0.1)
         _iter = 0
 
         begin_time = time()
-        print("Beginning Training without triplet loss!")
+
+        # Loss mixer: ce_loss_orig + (lambda1 * ce_loss_adversarial) + (lambda2 * triplet_loss)
+        lambda1 = 1
+        lambda2 = 1
 
         for epoch in range(1, args.max_epoch+1):
-            scheduler.step()
+            # scheduler.step()
             for data, label in tr_loader:
-
                 data, label = tensor2cuda(data), tensor2cuda(label)
 
                 if adv_train:
+                    # Outputs from original samples
+                    output = model(data, _eval=False)
+
                     # When training, the adversarial example is created from a random 
                     # close point to the original data point. If in evaluation mode, 
                     # just start from the original data point.
                     adv_data = self.attack.perturb(data, label, 'mean', True)
 
-                    output = model(adv_data, _eval=False)
+                    # Outputs from adversarial samples
+                    adv_output = model(adv_data, _eval=False)
 
                     # Shape of pred: batch_size
-                    pred = torch.max(output, dim=1)[1]
+                    # Predicted labels on adversarial samples
+                    pred = torch.max(adv_output, dim=1)[1]
 
                     # Shape of output: batch_size * 640
                     X_output = model(data, _eval=False, _prefinal=True)
@@ -66,7 +73,11 @@ class Trainer():
                     tloss = 0
 
                 ce_loss = F.cross_entropy(output, label)
-                loss = ce_loss + tloss
+                if adv_train:
+                    # Adding loss due to adversarial samples in the mix
+                    ce_loss = ce_loss + lambda1 * F.cross_entropy(adv_output, label)
+
+                loss = ce_loss + lambda2 * tloss
 
                 opt.zero_grad()
                 loss.backward()
@@ -146,6 +157,8 @@ class Trainer():
                     va_acc, va_adv_acc, t2-t1))
                 logger.info('='*28+' end of evaluation '+'='*28+'\n')
 
+            scheduler.step()
+
 
     def test(self, model, loader, adv_test=False):
         # adv_test is False, return adv_acc as -1 
@@ -199,7 +212,7 @@ def main(args):
     print_args(args, logger)
 
     # Using a WideResNet model
-    model = WideResNet(depth=34, num_classes=10, widen_factor=10, dropRate=0.0)
+    model = WideResNet(depth=34, num_classes=10, widen_factor=1, dropRate=0.0)
     flop, param = get_model_infos(model, (1, 3, 32, 32))
     logger.info('Model Info: FLOP = {:.2f} M, Params = {:.2f} MB'.format(flop, param))
 
