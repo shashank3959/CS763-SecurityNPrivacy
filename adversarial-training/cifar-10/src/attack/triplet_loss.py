@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from time import time
 
 
-def _pairwise_distances(X1, X2):
+def _pairwise_distances(X1, X2, normtype):
     """
     Returns the pairwise distance between two tensors
     Args:
@@ -14,7 +14,7 @@ def _pairwise_distances(X1, X2):
     Returns:
         Element wise norm between two tensors. dimension: batch_size x 1
     """
-    return F.pairwise_distance(X1, X2)
+    return F.pairwise_distance(X1, X2, p=normtype)
 
 
 def _label_sampler(unique_labels, label):
@@ -103,13 +103,13 @@ def triplet_loss(X, X_adv, label, perturbed_label, logger, margin=2.0):
     # X_adv: Anchor element
     # X: Positive element
     # X_neg: Negative element
-    positive_pair_distances = _pairwise_distances(X_adv, X)
-    negative_pair_distances = _pairwise_distances(X_adv, X_neg)
+    positive_pair_distances = _pairwise_distances(X_adv, X, np.inf)
+    negative_pair_distances = _pairwise_distances(X_adv, X_neg, np.inf)
 
     dist_hinge = torch.clamp(positive_pair_distances - negative_pair_distances + margin, min=0.0)
 
     loss = dist_hinge.mean()
     print("Triplet loss:", loss)
-    print("Time to new labels:", time()-start)
+    # print("Time to new labels:", time()-start)
 
     return loss
