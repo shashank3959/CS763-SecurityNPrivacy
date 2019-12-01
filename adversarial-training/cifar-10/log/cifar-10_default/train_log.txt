@@ -1,0 +1,33 @@
+todo             : train
+dataset          : cifar-10
+data_root        : /mnt/c/Users/Noor/Documents/courses/sem3/ece763/CIFAR10
+log_root         : log
+model_root       : checkpoint
+load_checkpoint  : ./model/default/model.pth
+affix            : default
+cw_attack_modelpath : /mnt/c/Users/Noor/Documents/courses/sem3/ece763/trained_model_shashank/cifar-10_default/checkpoint_76000.pth
+epsilon          : 0.0157
+alpha            : 0.00784
+k                : 10
+batch_size       : 128
+max_epoch        : 200
+learning_rate    : 0.01
+weight_decay     : 0.0002
+gpu              : 0
+n_eval_step      : 100
+n_checkpoint_step : 4000
+n_store_image_step : 4000
+perturbation_type : linf
+adv_train        : False
+log_folder       : log/cifar-10_default
+model_folder     : checkpoint/cifar-10_default
+Model Info: FLOP = 69.12 M, Params = 0.47 MB
+Total Loss logger: 2.312, CE Loss: 2.312, Triplet loss: 0.000
+epoch: 1, iter: 0, spent 6.52 s, tr_loss: 2.312
+standard acc: 12.500 %, robustness acc: 11.719 %
+Total Loss logger: 1.853, CE Loss: 1.853, Triplet loss: 0.000
+epoch: 1, iter: 100, spent 134.94 s, tr_loss: 1.853
+standard acc: 29.688 %, robustness acc: 20.312 %
+Total Loss logger: 1.645, CE Loss: 1.645, Triplet loss: 0.000
+epoch: 1, iter: 200, spent 135.01 s, tr_loss: 1.645
+standard acc: 35.938 %, robustness acc: 21.875 %

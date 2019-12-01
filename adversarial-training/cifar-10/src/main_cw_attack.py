@@ -316,7 +316,7 @@ def main(args):
     elif args.todo =='cw_test':
         model = WideResNet(depth=34, num_classes=10, widen_factor=2, dropRate=0.0)
         print (model)
-        model.load_state_dict(torch.load(args.cw_attack_modelpath, map_location='cpu'))
+        model.load_state_dict(torch.load(args.cw_attack_modelpath, map_location=lambda storage, loc: storage))
         te_dataset = tv.datasets.CIFAR10(args.data_root, 
                                        train=False, 
                                        transform=tv.transforms.ToTensor(), 

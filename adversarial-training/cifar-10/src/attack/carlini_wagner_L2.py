@@ -305,7 +305,7 @@ class L2Adversary(object):
             scale_consts = torch.from_numpy(np.copy(scale_consts_np)).float()  # type: torch.FloatTensor
             scale_consts = cw_runutils.make_cuda_consistent(model, scale_consts)[0]
             scale_consts_var = Variable(scale_consts, requires_grad=False)
-            print ('Using scale consts:', list(scale_consts_np))  # FIXME
+            #print ('Using scale consts:', list(scale_consts_np))  # FIXME
 
             # the minimum L2 norms of perturbations found during optimization
             best_l2 = np.ones(batch_size) * np.inf
@@ -319,7 +319,7 @@ class L2Adversary(object):
                     self._optimize(model, optimizer, inputs_tanh_var,
                                    pert_tanh_var, targets_oh_var,
                                    scale_consts_var)
-                if optim_step % 10 == 0: print ('batch [{}] loss: {}'.format(optim_step, batch_loss))  # FIXME
+                #if optim_step % 10 == 0: print ('batch [{}] loss: {}'.format(optim_step, batch_loss))  # FIXME
 
                 if self.abort_early and not optim_step % (self.max_steps // 10):
                     if batch_loss > prev_batch_loss * (1 - self.ae_tol):
