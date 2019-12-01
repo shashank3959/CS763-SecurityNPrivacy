@@ -340,7 +340,7 @@ class L2Adversary(object):
                     ax = advxs_np[i]
                     #print("self._attack_successful",cppred,tlabel,ax.shape)
                     if self._attack_successful(cppred, tlabel):
-                        print("self._attack_successful****",cppred,tlabel,model((torch.from_numpy(ax).float()).reshape([1,3,32,32])))
+                        #print("self._attack_successful****",cppred,tlabel,model((torch.from_numpy(ax).float()).reshape([1,3,32,32])))
                         #exit()
                         assert cppred == ppred
                         if l2 < best_l2[i]:

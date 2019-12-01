@@ -204,15 +204,28 @@ class Trainer():
 def cw_attack_test(model,te_loader):
     model.eval()
     cw_acc = 0.0
-    num=0
+    te_acc = 0.0
+    test_num=0
+    adv_num = 0
+    total_te_acc = 0.0
     total_cw_acc=0.0
     mean=[0]
     std=[1]
 
     inputs_box = (min((0 - m) / s for m, s in zip(mean, std)),
                   max((1 - m) / s for m, s in zip(mean, std)))
-				  
+                  
     for data, label in te_loader:
+       te_acc = 0.0
+       data, label = tensor2cuda(data), tensor2cuda(label)       
+       test_output = model(data, _eval=True)       
+       test_pred = torch.max(test_output, dim=1)[1]   
+       te_acc = evaluate(test_pred.cpu().numpy(), label.cpu().numpy(), 'sum')       
+       total_te_acc += te_acc        
+       test_num += test_output.shape[0]
+       
+       #######################################################################
+       # Adversarial Samples       
        cw_acc = 0.0
        attack = carlini_wagner_L2.L2Adversary(targeted=False,
                                               confidence=0.0,
@@ -221,12 +234,16 @@ def cw_attack_test(model,te_loader):
                                               optimizer_lr=0.7)
        adv_data = attack(model,data, label,to_numpy=False)
        adv_output = model(adv_data, _eval=True)
-       num += adv_output.shape[0]
+       adv_num += adv_output.shape[0]
        adv_pred = torch.max(adv_output, dim=1)[1]
-       cw_acc = cw_adv_accuracy(adv_pred.cpu().numpy(), label.cpu().numpy(), 'sum')
+       cw_acc = evaluate(adv_pred.cpu().numpy(), label.cpu().numpy(), 'sum')
        total_cw_acc+=cw_acc
     
-    print ("Percentage of times CW Attack works",((total_cw_acc / num)*100))
+       print ("Total Test Samples",test_num)
+       print ("Total Adversarial Samples",adv_num)
+       print ("Accuracy before CW Attack",((total_te_acc / test_num)*100))
+       print ("Accuracy after CW Attack",((total_cw_acc / adv_num)*100))
+       exit()
     
 
 def main(args):
