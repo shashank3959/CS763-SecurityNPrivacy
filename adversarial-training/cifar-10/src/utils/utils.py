@@ -66,6 +66,10 @@ def evaluate(_input, _target, method='mean'):
     else:
         return correct.sum()
 
+def cw_adv_accuracy(_input,_target):
+    num_attacks = (_input != _target).astype(np.float32)
+    return num_attacks.sum()
+
 
 def create_logger(save_path='', file_type='', level='debug'):
 

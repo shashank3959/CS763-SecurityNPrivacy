@@ -158,7 +158,7 @@ class WideResNet(nn.Module):
 if __name__ == '__main__':
     i = torch.FloatTensor(4, 3, 32, 32)
 
-    n = WideResNet(depth=34, num_classes=10, widen_factor=10, dropRate=0.0)
+    n = WideResNet(depth=34, num_classes=10, widen_factor=2, dropRate=0.0)
 
     print(n(i).size())
 

@@ -2,16 +2,17 @@ import argparse
 
 def parser():
     parser = argparse.ArgumentParser(description='Video Summarization')
-    parser.add_argument('--todo', choices=['train', 'valid', 'test', 'visualize'], default='train',
+    parser.add_argument('--todo', choices=['train', 'valid', 'test', 'visualize','cw_test'], default='cw_test',
         help='what behavior want to do: train | valid | test | visualize')
     parser.add_argument('--dataset', default='cifar-10', help='use what dataset')
-    parser.add_argument('--data_root', default='/home/yilin/Data', 
+    parser.add_argument('--data_root', default='/mnt/c/Users/Noor/Documents/courses/sem3/ece763/CIFAR10', 
         help='the directory to save the dataset')
     parser.add_argument('--log_root', default='log', 
         help='the directory to save the logs or other imformations (e.g. images)')
     parser.add_argument('--model_root', default='checkpoint', help='the directory to save the models')
     parser.add_argument('--load_checkpoint', default='./model/default/model.pth')
     parser.add_argument('--affix', default='default', help='the affix for the save folder')
+    parser.add_argument('--cw_attack_modelpath', default='/mnt/c/Users/Noor/Documents/courses/sem3/ece763/trained_model_shashank/cifar-10_default/checkpoint_76000.pth', help='Path to model file on which you want to test CW Attack')
 
     # parameters for generating adversarial examples
     parser.add_argument('--epsilon', '-e', type=float, default=0.0157, 
