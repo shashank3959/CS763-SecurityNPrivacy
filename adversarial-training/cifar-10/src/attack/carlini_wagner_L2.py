@@ -285,7 +285,7 @@ class L2Adversary(object):
 
         # the one-hot encoding of `targets`
         targets_oh = torch.zeros(targets.size() + (num_classes,))  # type: torch.FloatTensor
-        targets_oh = cw_runutils.make_cuda_consistent(model, targets_oh)[0]
+        targets_oh = cw_runutils.make_cuda_consistent(model, targets_oh.cuda())[0]
         targets_oh.scatter_(1, targets.unsqueeze(1).long(),torch.tensor(1.0).long())
         targets_oh_var = Variable(targets_oh, requires_grad=False)
 
@@ -295,7 +295,7 @@ class L2Adversary(object):
         pert_tanh = torch.zeros(inputs.size())  # type: torch.FloatTensor
         if self.init_rand:
             nn.init.normal(pert_tanh, mean=0, std=1e-3)
-        pert_tanh = cw_runutils.make_cuda_consistent(model, pert_tanh)[0]
+        pert_tanh = cw_runutils.make_cuda_consistent(model, pert_tanh.cuda())[0]
         pert_tanh_var = Variable(pert_tanh, requires_grad=True)
 
         optimizer = optim.Adam([pert_tanh_var], lr=self.optimizer_lr)
@@ -303,7 +303,7 @@ class L2Adversary(object):
             if self.repeat and sstep == self.binary_search_steps - 1:
                 scale_consts_np = upper_bounds_np
             scale_consts = torch.from_numpy(np.copy(scale_consts_np)).float()  # type: torch.FloatTensor
-            scale_consts = cw_runutils.make_cuda_consistent(model, scale_consts)[0]
+            scale_consts = cw_runutils.make_cuda_consistent(model, scale_consts.cuda())[0]
             scale_consts_var = Variable(scale_consts, requires_grad=False)
             #print ('Using scale consts:', list(scale_consts_np))  # FIXME
 
