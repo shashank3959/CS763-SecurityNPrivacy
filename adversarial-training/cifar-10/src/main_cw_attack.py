@@ -59,9 +59,10 @@ class Trainer():
                     # close point to the original data point. If in evaluation mode, 
                     # just start from the original data point.
                     adv_data = self.attack(model,data, label,to_numpy=False)
+                    adv_data.cuda()
 
                     # Outputs from adversarial samples
-                    adv_output = model(adv_data, _eval=False)
+                    adv_output = model(adv_data,_eval=False)
 
                     # Shape of pred: batch_size
                     # Predicted labels on adversarial samples
@@ -107,7 +108,7 @@ class Trainer():
                         adv_data = self.attack(model,data, label,to_numpy=False)
 
                         with torch.no_grad():
-                            adv_output = model(adv_data, _eval=True)
+                            adv_output = model(adv_data.cuda(), _eval=True)
                         pred = torch.max(adv_output, dim=1)[1]
                         # print(label)
                         # print(pred)
@@ -191,7 +192,7 @@ class Trainer():
                     with torch.enable_grad():
                         adv_data = self.attack(model,data, label,to_numpy=False)
 
-                    adv_output = model(adv_data, _eval=True)
+                    adv_output = model(adv_data.cuda(), _eval=True)
 
                     adv_pred = torch.max(adv_output, dim=1)[1]
                     adv_acc = evaluate(adv_pred.cpu().numpy(), label.cpu().numpy(), 'sum')
@@ -229,11 +230,11 @@ def cw_attack_test(model,te_loader):
        cw_acc = 0.0
        attack = carlini_wagner_L2.L2Adversary(targeted=False,
                                               confidence=0.0,
-                                              search_steps=2,
+                                              search_steps=10,
                                               box=inputs_box,
-                                              optimizer_lr=0.7)
+                                              optimizer_lr=5e-4)
        adv_data = attack(model,data, label,to_numpy=False)
-       adv_output = model(adv_data, _eval=True)
+       adv_output = model(adv_data.cuda(), _eval=True)
        adv_num += adv_output.shape[0]
        adv_pred = torch.max(adv_output, dim=1)[1]
        cw_acc = evaluate(adv_pred.cpu().numpy(), label.cpu().numpy(), 'sum')
@@ -243,7 +244,6 @@ def cw_attack_test(model,te_loader):
        print ("Total Adversarial Samples",adv_num)
        print ("Accuracy before CW Attack",((total_te_acc / test_num)*100))
        print ("Accuracy after CW Attack",((total_cw_acc / adv_num)*100))
-       exit()
     
 
 def main(args):
@@ -276,9 +276,9 @@ def main(args):
 
     attack = carlini_wagner_L2.L2Adversary(targeted=False,
                                                confidence=0.0,
-                                               search_steps=2,
+                                               search_steps=10,
                                                box=inputs_box,
-                                               optimizer_lr=0.7)
+                                               optimizer_lr=5e-4)
 
     if torch.cuda.is_available():
         model.cuda()
@@ -317,6 +317,7 @@ def main(args):
         model = WideResNet(depth=34, num_classes=10, widen_factor=2, dropRate=0.0)
         print (model)
         model.load_state_dict(torch.load(args.cw_attack_modelpath, map_location=lambda storage, loc: storage))
+        model.cuda()
         te_dataset = tv.datasets.CIFAR10(args.data_root, 
                                        train=False, 
                                        transform=tv.transforms.ToTensor(), 
@@ -324,7 +325,6 @@ def main(args):
 
         te_loader = DataLoader(te_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4)        
         cw_attack_test(model,te_loader)
-        print (model)   
     
     else:
         raise NotImplementedError
