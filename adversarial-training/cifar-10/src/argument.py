@@ -40,6 +40,12 @@ def parser():
         help='the type of the perturbation (linf or l2)')
     
     parser.add_argument('--adv_train', action='store_true')
+    parser.add_argument('--adv_train_mode',  choices=['FGSM', 'CW'], default='FGSM',
+        help='Choose the type of samples to generate for adversarial training')
+    parser.add_argument('--adv_test_mode',  choices=['FGSM', 'CW'], default='FGSM',
+        help='Choose the type of samples to generate for adversarial attacks')
+    parser.add_argument('--custom_regularizer', choices=['No_reg', 'Triplet', 'Npairs'], default='No_reg',
+                        help='Choose the type of regularizer to use')
 
     return parser.parse_args()
 

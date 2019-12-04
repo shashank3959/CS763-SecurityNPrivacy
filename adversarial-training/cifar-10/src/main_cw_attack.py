@@ -8,7 +8,7 @@ import torchvision as tv
 
 from time import time
 from model import WideResNet
-from attack import FastGradientSignUntargeted, triplet_loss, npairs_loss,carlini_wagner_L2
+from attack import FastGradientSignUntargeted, triplet_loss, npairs_loss, carlini_wagner_L2
 from utils import makedirs, create_logger, tensor2cuda, numpy2cuda, evaluate, save_model,flop_benchmark, cw_adv_accuracy
 from utils.flop_benchmark import get_model_infos
 

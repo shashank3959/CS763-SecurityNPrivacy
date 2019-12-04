@@ -8,10 +8,13 @@ import torchvision as tv
 
 from time import time
 from model import WideResNet
-from attack import FastGradientSignUntargeted, triplet_loss, npairs_loss
+from attack import FastGradientSignUntargeted, triplet_loss, npairs_loss, carlini_wagner_L2
 from utils import makedirs, create_logger, tensor2cuda, numpy2cuda, evaluate, save_model, get_model_infos
 
 from argument import parser, print_args
+
+from collections import OrderedDict
+import math
 
 class Trainer():
     def __init__(self, args, logger, attack):
@@ -37,9 +40,14 @@ class Trainer():
 
         begin_time = time()
 
-        # Loss mixer: ce_loss_orig + (lambda1 * ce_loss_adversarial) + (lambda2 * triplet_loss)
+        # Loss mixer: (ce_loss_orig + (lambda1 * ce_loss_adversarial))/(1 + lambda1) + (lambda2 * custom_loss)
         lambda1 = 0.6
-        lambda2 = 0.5 # 1 for triplet, 0.5 for npairs for now
+        if args.custom_regularizer == 'Triplet': # 1 for triplet
+            lambda2 = 1
+        elif args.custom_regularizer == 'Npairs': # 0.5 for npairs for now
+            lambda2 = 0.5
+        else:
+            lambda2 = 0
 
         for epoch in range(1, args.max_epoch+1):
             #scheduler.step()
@@ -54,7 +62,11 @@ class Trainer():
                     # When training, the adversarial example is created from a random 
                     # close point to the original data point. If in evaluation mode, 
                     # just start from the original data point.
-                    adv_data = self.attack.perturb(data, label, 'mean', True)
+                    if args.adv_train_mode == 'FGSM':
+                        adv_data = self.attack.perturb(data, label, 'mean', True)
+                    elif args.adv_train_mode == 'CW':
+                        adv_data = self.attack(model, data, label, to_numpy=False)
+                        adv_data.cuda()
 
                     # Outputs from adversarial samples
                     adv_output = model(adv_data, _eval=False)
@@ -63,12 +75,16 @@ class Trainer():
                     # Predicted labels on adversarial samples
                     pred = torch.max(adv_output, dim=1)[1]
 
-                    # Shape of output: batch_size * (64*widen_factor)
-                    X_output = model(data, _eval=False, _prefinal=True)
-                    X_adv_output = model(adv_data, _eval=False, _prefinal=True)
-
-                    #tloss = triplet_loss(X_output, X_adv_output, label, pred, logger)
-                    tloss = npairs_loss(X_output, X_adv_output, label)
+                    if args.custom_regularizer == 'No_reg':
+                        tloss = 0
+                    else:
+                        # Shape of output: batch_size * (64*widen_factor)
+                        X_output = model(data, _eval=False, _prefinal=True)
+                        X_adv_output = model(adv_data, _eval=False, _prefinal=True)
+                        if args.custom_regularizer == 'Triplet':
+                            tloss = triplet_loss(X_output, X_adv_output, label, pred, logger)
+                        elif args.custom_regularizer == 'Npairs':
+                            tloss = npairs_loss(X_output, X_adv_output, label)
                 else:
                     output = model(data, _eval=False)
                     tloss = 0
@@ -87,7 +103,7 @@ class Trainer():
 
                 if _iter % args.n_eval_step == 0:
                     t1 = time()
-                    logger.info('Total Loss logger: %.3f, CE Loss: %.3f, Triplet loss: %.3f' % (loss, ce_loss, tloss))
+                    logger.info('Total Loss logger: %.3f, CE Loss: %.3f, %s loss: %.3f' % (loss, ce_loss, args.custom_regularizer, tloss))
 
                     if adv_train:
                         with torch.no_grad():
@@ -99,14 +115,17 @@ class Trainer():
                         adv_acc = evaluate(pred.cpu().numpy(), label.cpu().numpy()) * 100
 
                     else:
-                        
-                        adv_data = self.attack.perturb(data, label, 'mean', False)
+                        if args.adv_train_mode == 'FGSM':
+                            adv_data = self.attack.perturb(data, label, 'mean', False)
+                        elif args.adv_train_mode == 'CW':
+                            adv_data = self.attack(model, data, label, to_numpy=False)
+                            adv_data = adv_data.cuda()
+
 
                         with torch.no_grad():
                             adv_output = model(adv_data, _eval=True)
                         pred = torch.max(adv_output, dim=1)[1]
-                        # print(label)
-                        # print(pred)
+
                         adv_acc = evaluate(pred.cpu().numpy(), label.cpu().numpy()) * 100
 
                         pred = torch.max(output, dim=1)[1]
@@ -117,7 +136,7 @@ class Trainer():
 
                     print('%.3f' % (t2 - t1))
 
-                    logger.info('epoch: %d, iter: %d, spent %.2f s, tr_loss: %.3f' % (
+                    logger.info('epoch: %d, iter: %d, spent %.2f s, overall loss: %.3f' % (
                         epoch, _iter, time()-begin_time, loss.item()))
 
                     logger.info('standard acc: %.3f %%, robustness acc: %.3f %%' % (
@@ -185,7 +204,11 @@ class Trainer():
                 if adv_test:
                     # use predicted label as target label
                     with torch.enable_grad():
-                        adv_data = self.attack.perturb(data, pred, 'mean', False)
+                        if args.adv_train_mode == 'FGSM':
+                            adv_data = self.attack.perturb(data, pred, 'mean', False)
+                        elif args.adv_train_mode == 'CW':
+                            adv_data = self.attack(model, data, label, to_numpy=False)
+                            adv_data = adv_data.cuda()
 
                     adv_output = model(adv_data, _eval=True)
 
@@ -219,13 +242,24 @@ def main(args):
     flop, param = get_model_infos(model, (1, 3, 32, 32))
     logger.info('Model Info: FLOP = {:.2f} M, Params = {:.2f} MB'.format(flop, param))
 
-    attack = FastGradientSignUntargeted(model, 
-                                        args.epsilon, 
-                                        args.alpha, 
-                                        min_val=0, 
-                                        max_val=1, 
-                                        max_iters=args.k, 
-                                        _type=args.perturbation_type)
+    if args.adv_train_mode == 'FGSM':
+        attack = FastGradientSignUntargeted(model,
+                                            args.epsilon,
+                                            args.alpha,
+                                            min_val=0,
+                                            max_val=1,
+                                            max_iters=args.k,
+                                            _type=args.perturbation_type)
+    elif args.adv_train_mode == 'CW':
+        mean = [0]
+        std = [1]
+        inputs_box = (min((0 - m) / s for m, s in zip(mean, std)),
+                      max((1 - m) / s for m, s in zip(mean, std)))
+        attack = carlini_wagner_L2.L2Adversary(targeted=False,
+                                               confidence=0.0,
+                                               search_steps=10,
+                                               box=inputs_box,
+                                               optimizer_lr=5e-4)
 
     if torch.cuda.is_available():
         model.cuda()
