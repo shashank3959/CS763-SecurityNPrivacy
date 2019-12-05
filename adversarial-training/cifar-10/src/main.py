@@ -172,7 +172,7 @@ class Trainer():
 
             if va_loader is not None:
                 t1 = time()
-                va_acc, va_adv_acc = self.test(model, va_loader, True, self.test_attack)
+                va_acc, va_adv_acc = self.test(model, va_loader, self.test_attack, True)
                 va_acc, va_adv_acc = va_acc * 100.0, va_adv_acc * 100.0
 
                 t2 = time()
@@ -183,7 +183,7 @@ class Trainer():
                 logger.info('='*28+' end of evaluation '+'='*28+'\n')
 
 
-    def test(self, model, loader, adv_test=False, test_attack):
+    def test(self, model, loader, test_attack, adv_test=False):
         # adv_test is False, return adv_acc as -1 
 
         total_acc = 0.0
