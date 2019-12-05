@@ -17,10 +17,11 @@ from collections import OrderedDict
 import math
 
 class Trainer():
-    def __init__(self, args, logger, attack):
+    def __init__(self, args, logger, train_attack, test_attack):
         self.args = args
         self.logger = logger
-        self.attack = attack
+        self.train_attack = train_attack
+        self.test_attack = test_attack
 
     def standard_train(self, model, tr_loader, va_loader=None):
         self.train(model, tr_loader, va_loader, False)
@@ -63,9 +64,9 @@ class Trainer():
                     # close point to the original data point. If in evaluation mode, 
                     # just start from the original data point.
                     if args.adv_train_mode == 'FGSM':
-                        adv_data = self.attack.perturb(data, label, 'mean', True)
+                        adv_data = self.train_attack.perturb(data, label, 'mean', True)
                     elif args.adv_train_mode == 'CW':
-                        adv_data = self.attack(model, data, label, to_numpy=False)
+                        adv_data = self.train_attack(model, data, label, to_numpy=False)
                         adv_data.cuda()
 
                     # Outputs from adversarial samples
@@ -116,9 +117,9 @@ class Trainer():
 
                     else:
                         if args.adv_train_mode == 'FGSM':
-                            adv_data = self.attack.perturb(data, label, 'mean', False)
+                            adv_data = self.train_attack.perturb(data, label, 'mean', False)
                         elif args.adv_train_mode == 'CW':
-                            adv_data = self.attack(model, data, label, to_numpy=False)
+                            adv_data = self.train_attack(model, data, label, to_numpy=False)
                             adv_data = adv_data.cuda()
 
 
@@ -171,7 +172,7 @@ class Trainer():
 
             if va_loader is not None:
                 t1 = time()
-                va_acc, va_adv_acc = self.test(model, va_loader, True)
+                va_acc, va_adv_acc = self.test(model, va_loader, True, self.test_attack)
                 va_acc, va_adv_acc = va_acc * 100.0, va_adv_acc * 100.0
 
                 t2 = time()
@@ -182,7 +183,7 @@ class Trainer():
                 logger.info('='*28+' end of evaluation '+'='*28+'\n')
 
 
-    def test(self, model, loader, adv_test=False):
+    def test(self, model, loader, adv_test=False, test_attack):
         # adv_test is False, return adv_acc as -1 
 
         total_acc = 0.0
@@ -205,9 +206,9 @@ class Trainer():
                     # use predicted label as target label
                     with torch.enable_grad():
                         if args.adv_test_mode == 'FGSM':
-                            adv_data = self.attack.perturb(data, pred, 'mean', False)
+                            adv_data = self.test_attack.perturb(data, pred, 'mean', False)
                         elif args.adv_test_mode == 'CW':
-                            adv_data = self.attack(model, data, label, to_numpy=False)
+                            adv_data = self.test_attack(model, data, label, to_numpy=False)
                             adv_data = adv_data.cuda()
 
                     adv_output = model(adv_data, _eval=True)
@@ -242,8 +243,9 @@ def main(args):
     flop, param = get_model_infos(model, (1, 3, 32, 32))
     logger.info('Model Info: FLOP = {:.2f} M, Params = {:.2f} MB'.format(flop, param))
 
+    # Configuring the train attack mode
     if args.adv_train_mode == 'FGSM':
-        attack = FastGradientSignUntargeted(model,
+        train_attack = FastGradientSignUntargeted(model,
                                             args.epsilon,
                                             args.alpha,
                                             min_val=0,
@@ -255,7 +257,27 @@ def main(args):
         std = [1]
         inputs_box = (min((0 - m) / s for m, s in zip(mean, std)),
                       max((1 - m) / s for m, s in zip(mean, std)))
-        attack = carlini_wagner_L2.L2Adversary(targeted=False,
+        train_attack = carlini_wagner_L2.L2Adversary(targeted=False,
+                                               confidence=0.0,
+                                               search_steps=10,
+                                               box=inputs_box,
+                                               optimizer_lr=5e-4)
+
+    # Configuring the test attack mode
+    if args.adv_test_mode == 'FGSM':
+        test_attack = FastGradientSignUntargeted(model,
+                                            args.epsilon,
+                                            args.alpha,
+                                            min_val=0,
+                                            max_val=1,
+                                            max_iters=args.k,
+                                            _type=args.perturbation_type)
+    elif args.adv_test_mode == 'CW':
+        mean = [0]
+        std = [1]
+        inputs_box = (min((0 - m) / s for m, s in zip(mean, std)),
+                      max((1 - m) / s for m, s in zip(mean, std)))
+        test_attack = carlini_wagner_L2.L2Adversary(targeted=False,
                                                confidence=0.0,
                                                search_steps=10,
                                                box=inputs_box,
@@ -264,7 +286,7 @@ def main(args):
     if torch.cuda.is_available():
         model.cuda()
 
-    trainer = Trainer(args, logger, attack)
+    trainer = Trainer(args, logger, train_attack, test_attack)
 
     if args.todo == 'train':
         transform_train = tv.transforms.Compose([
