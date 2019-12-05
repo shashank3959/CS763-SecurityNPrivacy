@@ -204,9 +204,9 @@ class Trainer():
                 if adv_test:
                     # use predicted label as target label
                     with torch.enable_grad():
-                        if args.adv_train_mode == 'FGSM':
+                        if args.adv_test_mode == 'FGSM':
                             adv_data = self.attack.perturb(data, pred, 'mean', False)
-                        elif args.adv_train_mode == 'CW':
+                        elif args.adv_test_mode == 'CW':
                             adv_data = self.attack(model, data, label, to_numpy=False)
                             adv_data = adv_data.cuda()
 
