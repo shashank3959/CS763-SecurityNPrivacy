@@ -72,7 +72,7 @@ class FastGradientSignUntargeted():
         
     def perturb(self, original_images, labels, reduction4loss='mean', random_start=False):
         # original_images: values are within self.min_val and self.max_val
-        self.logger.info('Generating FGSM perturbation')
+        # self.logger.info('Generating FGSM perturbation')
         # The adversaries created from random close points to the original data
         if random_start:
             rand_perturb = torch.FloatTensor(original_images.shape).uniform_(
