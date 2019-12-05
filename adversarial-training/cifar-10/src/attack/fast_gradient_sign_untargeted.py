@@ -52,7 +52,7 @@ class FastGradientSignUntargeted():
         Fast gradient sign untargeted adversarial attack, minimizes the initial class activation
         with iterative grad sign updates
     """
-    def __init__(self, model, epsilon, alpha, min_val, max_val, max_iters, _type='linf'):
+    def __init__(self, model, epsilon, alpha, min_val, max_val, max_iters, _type='linf', logger=None):
         self.model = model
         # self.model.eval()
 
@@ -68,10 +68,11 @@ class FastGradientSignUntargeted():
         self.max_iters = max_iters
         # The perturbation of epsilon
         self._type = _type
+        self.logger = logger
         
     def perturb(self, original_images, labels, reduction4loss='mean', random_start=False):
         # original_images: values are within self.min_val and self.max_val
-        print('Generating FGSM perturbation')
+        self.logger.info('Generating FGSM perturbation')
         # The adversaries created from random close points to the original data
         if random_start:
             rand_perturb = torch.FloatTensor(original_images.shape).uniform_(

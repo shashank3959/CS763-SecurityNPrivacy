@@ -251,7 +251,8 @@ def main(args):
                                             min_val=0,
                                             max_val=1,
                                             max_iters=args.k,
-                                            _type=args.perturbation_type)
+                                            _type=args.perturbation_type,
+                                            logger=logger)
     elif args.adv_train_mode == 'CW':
         mean = [0]
         std = [1]
@@ -261,7 +262,8 @@ def main(args):
                                                confidence=0.0,
                                                search_steps=10,
                                                box=inputs_box,
-                                               optimizer_lr=5e-4)
+                                               optimizer_lr=5e-4,
+                                               logger=logger)
 
     # Configuring the test attack mode
     if args.adv_test_mode == 'FGSM':
@@ -271,7 +273,8 @@ def main(args):
                                             min_val=0,
                                             max_val=1,
                                             max_iters=args.k,
-                                            _type=args.perturbation_type)
+                                            _type=args.perturbation_type,
+                                            logger=logger)
     elif args.adv_test_mode == 'CW':
         mean = [0]
         std = [1]
@@ -281,7 +284,8 @@ def main(args):
                                                confidence=0.0,
                                                search_steps=10,
                                                box=inputs_box,
-                                               optimizer_lr=5e-4)
+                                               optimizer_lr=5e-4,
+                                               logger=logger)
 
     if torch.cuda.is_available():
         model.cuda()

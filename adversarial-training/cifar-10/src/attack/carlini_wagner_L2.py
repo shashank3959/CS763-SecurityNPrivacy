@@ -137,7 +137,7 @@ class L2Adversary(object):
 
     def __init__(self, targeted=True, confidence=0.0, c_range=(1e-3, 1e10),
                  search_steps=5, max_steps=10, abort_early=True,
-                 box=(-1., 1.), optimizer_lr=1e-2, init_rand=False):
+                 box=(-1., 1.), optimizer_lr=1e-2, init_rand=False, logger=None):
         """
         :param targeted: ``True`` to perform targeted attack in ``self.run``
                method
@@ -218,6 +218,7 @@ class L2Adversary(object):
         # the L2 norm is, thus less optimal, the last attempt at the largest
         # `scale_const` won't ruin the optimum ever found.
         self.repeat = (self.binary_search_steps >= 10)
+        self.logger = logger
 
     def __call__(self, model, inputs, targets, to_numpy=True):
         """
@@ -247,7 +248,7 @@ class L2Adversary(object):
         assert len(inputs.size()) == 4
         assert len(targets.size()) == 1
 
-        print('Generating CW perturbation')
+        self.logger.info('Generating CW perturbation')
         # get a copy of targets in numpy before moving to GPU, used when doing
         # the binary search on `scale_const`
         targets_np = targets.clone().cpu().numpy()  # type: np.ndarray
