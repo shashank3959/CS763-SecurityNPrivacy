@@ -67,7 +67,7 @@ class Trainer():
                         adv_data = self.train_attack.perturb(data, label, 'mean', True)
                     elif args.adv_train_mode == 'CW':
                         adv_data = self.train_attack(model, data, label, to_numpy=False)
-                        adv_data.cuda()
+                        adv_data = adv_data.cuda()
 
                     # Outputs from adversarial samples
                     adv_output = model(adv_data, _eval=False)
