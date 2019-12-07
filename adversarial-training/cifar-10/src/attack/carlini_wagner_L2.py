@@ -248,6 +248,7 @@ class L2Adversary(object):
         assert len(inputs.size()) == 4
         assert len(targets.size()) == 1
 
+        model.eval()
         # self.logger.info('Generating CW perturbation')
         # get a copy of targets in numpy before moving to GPU, used when doing
         # the binary search on `scale_const`
