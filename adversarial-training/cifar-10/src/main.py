@@ -261,7 +261,6 @@ def main(args):
         train_attack = carlini_wagner_L2.L2Adversary(targeted=False,
                                                confidence=0.0,
                                                search_steps=10,
-                                               box=inputs_box,
                                                optimizer_lr=5e-4,
                                                logger=logger)
 
@@ -283,7 +282,6 @@ def main(args):
         test_attack = carlini_wagner_L2.L2Adversary(targeted=False,
                                                confidence=0.0,
                                                search_steps=10,
-                                               box=inputs_box,
                                                optimizer_lr=5e-4,
                                                logger=logger)
 
