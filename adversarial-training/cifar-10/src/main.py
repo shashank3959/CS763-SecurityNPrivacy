@@ -68,7 +68,7 @@ class Trainer():
                     elif args.adv_train_mode == 'CW':
                         adv_data = self.train_attack(model, data, label, to_numpy=False)
                         adv_data = adv_data.cuda()
-
+                   
                     # Outputs from adversarial samples
                     adv_output = model(adv_data, _eval=False)
 
@@ -142,7 +142,7 @@ class Trainer():
 
                     logger.info('standard acc: %.3f %%, robustness acc: %.3f %%' % (
                         std_acc, adv_acc))
-
+                        
                     # begin_time = time()
 
                     # if va_loader is not None:
@@ -201,7 +201,7 @@ class Trainer():
                 
                 total_acc += te_acc
                 num += output.shape[0]
-
+                
                 if adv_test:
                     # use predicted label as target label
                     with torch.enable_grad():

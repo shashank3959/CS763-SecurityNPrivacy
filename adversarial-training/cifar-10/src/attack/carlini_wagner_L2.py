@@ -413,6 +413,7 @@ class L2Adversary(object):
         """
         # the adversarial examples in the image space
         # of dimension [B x C x H x W]
+        model.eval()
         advxs_var = self._from_tanh_space(inputs_tanh_var + pert_tanh_var)  # type: Variable
         # the perturbed activation before softmax
         pert_outputs_var = model(advxs_var)  # type: Variable
